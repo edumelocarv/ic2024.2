@@ -1,4 +1,3 @@
-import csv
 import json
 import pandas as pd
 from typing import List, Dict
@@ -6,7 +5,6 @@ from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 import time
-import os
 
 
 class SimilaritySearch:
@@ -14,12 +12,13 @@ class SimilaritySearch:
         """Inicializa a classe, carregando dados e modelo uma única vez."""
         self.data = data
         self.model = SentenceTransformer('all-MiniLM-L6-v2') 
-        self.reclamacoes = self.extract_reclamacoes()
+        self.reclamacoes = self.extract_reclamacoes(self.data)
         self.reclamacoes_vetorizadas = self.vectorize_texts(self.reclamacoes)
 
-    def extract_reclamacoes(self) -> List[str]:
-        """Extrai as reclamações de self.data."""
-        return [item['reclamacao'] for item in self.data]
+    @staticmethod
+    def extract_reclamacoes(data: List[Dict[str, str]]) -> List[str]:
+        """Extrai as reclamações de uma lista de dicionários."""
+        return [item['reclamacao'] for item in data]
 
     def vectorize_texts(self, texts: List[str]) -> np.ndarray:
         """Vetoriza uma lista de textos usando o modelo SBERT e retorna os vetores resultantes."""
@@ -39,49 +38,18 @@ class SimilaritySearch:
         index = np.argmax(similarities)
         return self.data[index]
 
-    def run_queries(self, consultas: List[str]) -> List[Dict[str, str]]:
-        """
-        Executa múltiplas consultas e retorna os resultados, incluindo:
-        frase consultada, reclamação mais similar, NIP, Demanda, Protocolo, e o tempo de pesquisa.
-        """
-        resultados = []
+    def run_queries(self, consultas: List[str]) -> None:
+        """Executa múltiplas consultas e exibe as reclamações mais similares para cada uma."""
         for consulta in consultas:
             start_time = time.time()
             resultado = self.find_most_similar(consulta)
             end_time = time.time()
-            tempo_pesquisa = end_time - start_time
-            resultados.append({
-                "consulta": consulta,
-                "reclamacao_mais_similar": resultado['reclamacao'],
-                "nip": resultado['nip'],
-                "demanda": resultado['demanda'],
-                "protocolo": resultado['protocolo'],
-                "tempo_pesquisa": tempo_pesquisa
-            })
-        return resultados
-
-
-def save_results_to_csv(resultados: List[Dict[str, str]], filename: str = "resultados_consultas.csv") -> None:
-    """
-    Salva os resultados das consultas em um arquivo CSV na mesma pasta do script.
-    Se o arquivo já existir, os novos resultados são adicionados ao final.
-    """
-    # Caminho completo do arquivo na mesma pasta do script
-    file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), filename)
-    
-    # Verifica se o arquivo já existe
-    file_exists = os.path.isfile(file_path)
-    with open(file_path, mode='a', newline='', encoding='utf-8') as csv_file:
-        fieldnames = ["consulta", "reclamacao_mais_similar", "nip", "demanda", "protocolo", "tempo_pesquisa"]
-        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-
-        # Escrever cabeçalho apenas se o arquivo não existir
-        if not file_exists:
-            writer.writeheader()
-
-        # Escrever cada resultado no arquivo
-        for resultado in resultados:
-            writer.writerow(resultado)
+            print(f"\nConsulta: {consulta}")
+            print(f"Reclamação mais similar: {resultado['reclamacao']}")
+            print(f"NIP: {resultado['nip']}")
+            print(f"Demanda: {resultado['demanda']}")
+            print(f"Protocolo: {resultado['protocolo']}")
+            print(f"Tempo de pesquisa: {end_time - start_time:.4f} segundos")
 
 
 def load_data(file_path: str) -> List[Dict[str, str]]:
@@ -103,11 +71,8 @@ def main() -> None:
     file_path = 'dados.json'
     data = load_data(file_path)
     consultas = ["são luis", "solicitação de exame negado", "atendimento psicológico"]
-
     search_engine = SimilaritySearch(data)
-    resultados = search_engine.run_queries(consultas)
-
-    save_results_to_csv(resultados)
+    search_engine.run_queries(consultas)
 
 
 if __name__ == "__main__":
